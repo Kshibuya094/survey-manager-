@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>アンケート管理</title>
 
-<!-- ✅ Firebase（この2行だけ残す） -->
+<!-- ✅ Firebase（完全に正しい形） -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
@@ -57,7 +57,6 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 </div>
 
 <script>
-// Firebase設定（←ここだけ自分の値に）
 const firebaseConfig = {
   apiKey: "あなたのAPIキー",
   authDomain: "あなたのauthDomain",
@@ -67,54 +66,52 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 保存先
 const surveysRef = db
   .collection("shops")
   .doc("test-shop")
   .collection("surveys");
 
-let surveyData = [];
-
-// 表示
-function renderTable() {
+// ✅ 表示
+function renderTable(list) {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
   const users = ["iijima","tanida","honda","tokuishi"];
 
-  surveyData.forEach((row, i) => {
+  list.forEach(row => {
     let tr = `<tr>
       <td>${row.name}</td>
       <td>${row.deadline || "-"}</td>`;
 
     users.forEach(u => {
-      const s = row.users?.[u];
+      const status = row.users?.[u] || false;
+
       tr += `<td>
-        <button class="${s?"answered":"unanswered"}"
-        data-i="${i}" data-u="${u}">
-        ${s?"済":"未"}
+        <button class="${status?"answered":"unanswered"}"
+          data-id="${row.id}" data-user="${u}">
+          ${status?"済":"未"}
         </button>
       </td>`;
     });
 
     tr += `<td>
-      <button class="delete-btn" data-i="${i}">削除</button>
+      <button class="delete-btn" data-id="${row.id}">削除</button>
     </td></tr>`;
 
     tbody.innerHTML += tr;
   });
 }
 
-// リアルタイム
-surveysRef.onSnapshot(snap => {
-  surveyData = [];
-  snap.forEach(doc => {
-    surveyData.push({ id:doc.id, ...doc.data() });
+// ✅ リアルタイム取得
+surveysRef.onSnapshot(snapshot => {
+  const list = [];
+  snapshot.forEach(doc => {
+    list.push({ id:doc.id, ...doc.data() });
   });
-  renderTable();
+  renderTable(list);
 });
 
-// 追加
+// ✅ 追加
 document.getElementById("addButton").onclick = async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
@@ -136,27 +133,31 @@ document.getElementById("addButton").onclick = async () => {
   document.getElementById("newSurveyDeadline").value = "";
 };
 
-// 更新・削除
+// ✅ 更新・削除（IDベース）
 document.addEventListener("click", async (e) => {
 
+  // 更新
   if (e.target.classList.contains("unanswered") ||
       e.target.classList.contains("answered")) {
 
-    const i = e.target.dataset.i;
-    const u = e.target.dataset.u;
-    const data = surveyData[i];
+    const id = e.target.dataset.id;
+    const user = e.target.dataset.user;
 
-    await surveysRef.doc(data.id).update({
-      [`users.${u}`]: !data.users[u]
+    const ref = surveysRef.doc(id);
+    const snap = await ref.get();
+    const data = snap.data();
+
+    await ref.update({
+      [`users.${user}`]: !data.users[user]
     });
   }
 
+  // 削除
   if (e.target.classList.contains("delete-btn")) {
-    const i = e.target.dataset.i;
-    const data = surveyData[i];
+    const id = e.target.dataset.id;
 
     if (confirm("削除する？")) {
-      await surveysRef.doc(data.id).delete();
+      await surveysRef.doc(id).delete();
     }
   }
 });
@@ -164,3 +165,4 @@ document.addEventListener("click", async (e) => {
 
 </body>
 </html>
+``
