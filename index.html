@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>アンケート回答状況チェック</title>
 
-<!-- Firebase（これ絶対そのまま） -->
+<!-- ✅ Firebase（これ絶対この形） -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
@@ -17,7 +16,7 @@ body { font-family: Arial; background:#f3f4f6; padding:20px; }
 .input-group { display:flex; gap:10px; margin-bottom:20px; }
 input { padding:10px; }
 
-.add-btn { background:#2563eb; color:#fff; border:none; padding:10px; }
+.add-btn { background:#2563eb; color:#fff; border:none; padding:10px; cursor:pointer; }
 
 table { width:100%; border-collapse: collapse; }
 th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
@@ -25,7 +24,7 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 .unanswered { background:#fee2e2; }
 .answered { background:#dcfce7; }
 
-.delete-btn { background:red; color:#fff; border:none; }
+.delete-btn { background:red; color:#fff; border:none; cursor:pointer; }
 </style>
 </head>
 
@@ -57,6 +56,7 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 </div>
 
 <script>
+// ================= Firebase設定 =================
 const firebaseConfig = {
   apiKey: "あなたのAPIキー",
   authDomain: "あなたのauthDomain",
@@ -66,7 +66,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ←ここ固定
+// ✅ 保存先（これ固定）
 const surveysRef = db
   .collection("shops")
   .doc("test-shop")
@@ -74,7 +74,7 @@ const surveysRef = db
 
 let surveyData = [];
 
-// ===== 表示 =====
+// ================= 表示 =================
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
@@ -90,8 +90,8 @@ function renderTable() {
       const s = row.users?.[u];
       tr += `<td>
         <button class="${s?"answered":"unanswered"}"
-        data-i="${i}" data-u="${u}">
-        ${s?"済":"未"}
+          data-i="${i}" data-u="${u}">
+          ${s?"済":"未"}
         </button>
       </td>`;
     });
@@ -104,7 +104,7 @@ function renderTable() {
   });
 }
 
-// ===== リアルタイム取得（orderByしない）=====
+// ================= リアルタイム取得 =================
 surveysRef.onSnapshot(snap => {
   surveyData = [];
   snap.forEach(doc => {
@@ -113,12 +113,12 @@ surveysRef.onSnapshot(snap => {
   renderTable();
 });
 
-// ===== 追加 =====
+// ================= 追加 =================
 document.getElementById("addButton").onclick = async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
 
-  if (!name) return;
+  if (!name) return alert("名前入れて");
 
   await surveysRef.add({
     name,
@@ -136,9 +136,10 @@ document.getElementById("addButton").onclick = async () => {
   document.getElementById("newSurveyDeadline").value = "";
 };
 
-// ===== クリック =====
+// ================= クリック処理 =================
 document.addEventListener("click", async (e) => {
 
+  // 状態変更
   if (e.target.classList.contains("unanswered") ||
       e.target.classList.contains("answered")) {
 
@@ -151,6 +152,7 @@ document.addEventListener("click", async (e) => {
     });
   }
 
+  // 削除
   if (e.target.classList.contains("delete-btn")) {
     const i = e.target.dataset.i;
     const data = surveyData[i];
