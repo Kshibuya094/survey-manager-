@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>アンケート回答状況</title>
+<title>アンケート管理</title>
 
-<!-- ✅ 正しいFirebase（絶対これ） -->
+<!-- ✅ Firebase（この2行だけ残す） -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
@@ -57,6 +57,7 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 </div>
 
 <script>
+// Firebase設定（←ここだけ自分の値に）
 const firebaseConfig = {
   apiKey: "あなたのAPIキー",
   authDomain: "あなたのauthDomain",
@@ -66,6 +67,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// 保存先
 const surveysRef = db
   .collection("shops")
   .doc("test-shop")
@@ -73,6 +75,7 @@ const surveysRef = db
 
 let surveyData = [];
 
+// 表示
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
@@ -102,6 +105,7 @@ function renderTable() {
   });
 }
 
+// リアルタイム
 surveysRef.onSnapshot(snap => {
   surveyData = [];
   snap.forEach(doc => {
@@ -110,6 +114,7 @@ surveysRef.onSnapshot(snap => {
   renderTable();
 });
 
+// 追加
 document.getElementById("addButton").onclick = async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
@@ -124,14 +129,14 @@ document.getElementById("addButton").onclick = async () => {
       tanida:false,
       honda:false,
       tokuishi:false
-    },
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }
   });
 
   document.getElementById("newSurveyName").value = "";
   document.getElementById("newSurveyDeadline").value = "";
 };
 
+// 更新・削除
 document.addEventListener("click", async (e) => {
 
   if (e.target.classList.contains("unanswered") ||
