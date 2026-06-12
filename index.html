@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>アンケート管理</title>
+<title>アンケート管理（復旧版）</title>
 
-<!-- ✅ Firebase（完全に正しい形） -->
+<!-- Realtime Database -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
 body { font-family: Arial; background:#f3f4f6; padding:20px; }
@@ -32,7 +32,7 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 <body>
 
 <div class="container">
-<h2>アンケート管理</h2>
+<h2>アンケート管理（復旧版）</h2>
 
 <div class="input-group">
 <input id="newSurveyName" placeholder="アンケート名">
@@ -60,65 +60,60 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 const firebaseConfig = {
   apiKey: "あなたのAPIキー",
   authDomain: "あなたのauthDomain",
+  databaseURL: "あなたのdatabaseURL",
   projectId: "あなたのprojectId"
 };
 
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+const db = firebase.database();
+const ref = db.ref("surveys");
 
-const surveysRef = db
-  .collection("shops")
-  .doc("test-shop")
-  .collection("surveys");
+let surveyData = [];
+let surveyKeys = [];
 
-// ✅ 表示
-function renderTable(list) {
+function render() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
   const users = ["iijima","tanida","honda","tokuishi"];
 
-  list.forEach(row => {
+  surveyData.forEach((row, i) => {
     let tr = `<tr>
       <td>${row.name}</td>
       <td>${row.deadline || "-"}</td>`;
 
     users.forEach(u => {
-      const status = row.users?.[u] || false;
-
+      const s = row.users?.[u];
       tr += `<td>
-        <button class="${status?"answered":"unanswered"}"
-          data-id="${row.id}" data-user="${u}">
-          ${status?"済":"未"}
+        <button class="${s?"answered":"unanswered"}"
+        data-i="${i}" data-u="${u}">
+        ${s?"済":"未"}
         </button>
       </td>`;
     });
 
     tr += `<td>
-      <button class="delete-btn" data-id="${row.id}">削除</button>
+      <button class="delete-btn" data-i="${i}">削除</button>
     </td></tr>`;
 
     tbody.innerHTML += tr;
   });
 }
 
-// ✅ リアルタイム取得
-surveysRef.onSnapshot(snapshot => {
-  const list = [];
-  snapshot.forEach(doc => {
-    list.push({ id:doc.id, ...doc.data() });
-  });
-  renderTable(list);
+ref.on("value", snap => {
+  const data = snap.val() || {};
+  surveyData = Object.values(data);
+  surveyKeys = Object.keys(data);
+  render();
 });
 
-// ✅ 追加
 document.getElementById("addButton").onclick = async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
 
   if (!name) return;
 
-  await surveysRef.add({
+  await ref.push({
     name,
     deadline,
     users: {
@@ -133,31 +128,27 @@ document.getElementById("addButton").onclick = async () => {
   document.getElementById("newSurveyDeadline").value = "";
 };
 
-// ✅ 更新・削除（IDベース）
 document.addEventListener("click", async (e) => {
 
-  // 更新
   if (e.target.classList.contains("unanswered") ||
       e.target.classList.contains("answered")) {
 
-    const id = e.target.dataset.id;
-    const user = e.target.dataset.user;
+    const i = e.target.dataset.i;
+    const u = e.target.dataset.u;
+    const key = surveyKeys[i];
+    const data = surveyData[i];
 
-    const ref = surveysRef.doc(id);
-    const snap = await ref.get();
-    const data = snap.data();
-
-    await ref.update({
-      [`users.${user}`]: !data.users[user]
+    await ref.child(key).update({
+      [`users/${u}`]: !data.users[u]
     });
   }
 
-  // 削除
   if (e.target.classList.contains("delete-btn")) {
-    const id = e.target.dataset.id;
+    const i = e.target.dataset.i;
+    const key = surveyKeys[i];
 
     if (confirm("削除する？")) {
-      await surveysRef.doc(id).delete();
+      await ref.child(key).remove();
     }
   }
 });
@@ -165,4 +156,3 @@ document.addEventListener("click", async (e) => {
 
 </body>
 </html>
-``
