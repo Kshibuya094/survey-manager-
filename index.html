@@ -5,29 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>アンケート回答状況管理</title>
 
-<!-- ✅ 正しいFirebase（ここが超重要） -->
+<!-- ✅ Firebase（ここが一番重要：絶対このまま） -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <style>
-body { font-family: Arial; margin: 0; padding: 20px; background:#f3f4f6;}
-.container { max-width: 950px; margin:auto; background:#fff; padding:20px; border-radius:10px;}
-.input-group { display:flex; gap:10px; margin-bottom:20px;}
-input { padding:10px; }
-button { cursor:pointer; }
-.add-btn { background:#2563eb; color:#fff; border:none; padding:10px;}
-table { width:100%; border-collapse: collapse;}
-th, td { padding:10px; border-bottom:1px solid #ddd;}
-.status-btn { padding:6px 10px; border:none; }
-.unanswered { background:#fee2e2; }
-.answered { background:#dcfce7; }
-.delete-btn { background:#ef4444; color:#fff; border:none;}
+body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f3f4f6; color: #333; }
+.container { max-width: 950px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+h1 { font-size: 24px; margin-bottom: 25px; text-align: center; }
+
+.input-group { display: flex; gap: 15px; margin-bottom: 30px; }
+input { padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+
+.add-btn { padding: 10px 20px; background:#2563eb; color:#fff; border:none; border-radius:6px; cursor:pointer; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; }
+th { background:#f9fafb; }
+
+.status-btn { padding:6px 14px; border:none; border-radius:20px; cursor:pointer; }
+.unanswered { background:#fee2e2; color:#ef4444; }
+.answered { background:#dcfce7; color:#22c55e; }
+
+.delete-btn { background:#ef4444; color:#fff; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; }
 </style>
 </head>
 
 <body>
+
 <div class="container">
-<h2>アンケート管理</h2>
+<h1>📊 アンケート回答状況チェック</h1>
 
 <div class="input-group">
 <input type="text" id="newSurveyName" placeholder="アンケート名">
@@ -38,12 +45,12 @@ th, td { padding:10px; border-bottom:1px solid #ddd;}
 <table>
 <thead>
 <tr>
-<th>名前</th>
+<th>アンケート名</th>
 <th>締切</th>
-<th>飯嶋</th>
-<th>谷田</th>
-<th>本田</th>
-<th>徳石</th>
+<th>飯嶋さん</th>
+<th>谷田さん</th>
+<th>本田さん</th>
+<th>徳石さん</th>
 <th>削除</th>
 </tr>
 </thead>
@@ -52,7 +59,7 @@ th, td { padding:10px; border-bottom:1px solid #ddd;}
 </div>
 
 <script>
-// Firebase
+// ================= Firebase =================
 const firebaseConfig = {
   apiKey: "AIzaSyBhbolbMQlj888NB8_K3nJqA84T_QLtfRg",
   authDomain: "survey-manager-80287.firebaseapp.com",
@@ -65,51 +72,75 @@ const surveysRef = db.collection("surveys");
 
 let surveyData = [];
 
-// 表示
+// ================= 描画 =================
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
-  const users = ["iijima","tanida","honda","tokuishi"];
+  const userKeys = ["iijima","tanida","honda","tokuishi"];
 
-  surveyData.forEach((row, i) => {
-    let tr = `<tr>
-      <td>${row.name}</td>
-      <td>${row.deadline || "-"}</td>`;
+  surveyData.forEach((row, rowIndex) => {
+    const tr = document.createElement("tr");
 
-    users.forEach(u => {
-      const s = row.users?.[u];
-      tr += `<td>
-        <button class="status-btn ${s?"answered":"unanswered"}"
-        data-i="${i}" data-u="${u}">
-        ${s?"済":"未"}
-        </button>
-      </td>`;
+    tr.innerHTML += `<td>${row.name}</td>`;
+
+    // 締切（期限切れは赤）
+    let deadlineText = row.deadline || "-";
+    let style = "";
+
+    if (row.deadline) {
+      const deadlineDate = new Date(row.deadline);
+      if (deadlineDate < new Date()) {
+        style = 'style="color:red;"';
+      }
+    }
+
+    tr.innerHTML += `<td ${style}>${deadlineText}</td>`;
+
+    // ステータス
+    userKeys.forEach(key => {
+      const status = row.users?.[key] || false;
+
+      tr.innerHTML += `
+        <td>
+          <button class="status-btn ${status ? 'answered':'unanswered'}"
+          data-row="${rowIndex}" data-user="${key}">
+          ${status ? "回答済" : "未回答"}
+          </button>
+        </td>`;
     });
 
-    tr += `<td>
-      <button class="delete-btn" data-i="${i}">削除</button>
-    </td></tr>`;
+    // 削除
+    tr.innerHTML += `
+      <td>
+        <button class="delete-btn" data-row="${rowIndex}">
+        削除
+        </button>
+      </td>`;
 
-    tbody.innerHTML += tr;
+    tbody.appendChild(tr);
   });
 }
 
-// リアルタイム
+// ================= リアルタイム同期 =================
 surveysRef.orderBy("createdAt","desc")
-.onSnapshot(snap => {
+.onSnapshot(snapshot => {
   surveyData = [];
-  snap.forEach(doc => {
-    surveyData.push({ id:doc.id, ...doc.data() });
+  snapshot.forEach(doc => {
+    surveyData.push({
+      id: doc.id,
+      ...doc.data()
+    });
   });
   renderTable();
 });
 
-// 追加
-document.getElementById("addButton").onclick = async () => {
+// ================= 追加 =================
+document.getElementById("addButton").addEventListener("click", async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
-  if (!name) return;
+
+  if (!name) return alert("アンケート名を入力");
 
   await surveysRef.add({
     name,
@@ -125,26 +156,37 @@ document.getElementById("addButton").onclick = async () => {
 
   document.getElementById("newSurveyName").value = "";
   document.getElementById("newSurveyDeadline").value = "";
-};
+});
 
-// クリック
+// Enter対応
+document.getElementById("newSurveyName")
+.addEventListener("keypress", e => {
+  if (e.key === "Enter") {
+    document.getElementById("addButton").click();
+  }
+});
+
+// ================= クリック処理 =================
 document.addEventListener("click", async (e) => {
 
+  // 状態変更
   if (e.target.classList.contains("status-btn")) {
-    const i = e.target.dataset.i;
-    const u = e.target.dataset.u;
-    const data = surveyData[i];
+    const rowIdx = e.target.dataset.row;
+    const key = e.target.dataset.user;
+    const survey = surveyData[rowIdx];
 
-    await surveysRef.doc(data.id).update({
-      [`users.${u}`]: !data.users[u]
+    await surveysRef.doc(survey.id).update({
+      [`users.${key}`]: !survey.users[key]
     });
   }
 
+  // 削除
   if (e.target.classList.contains("delete-btn")) {
-    const i = e.target.dataset.i;
-    const data = surveyData[i];
+    const rowIdx = e.target.dataset.row;
+    const survey = surveyData[rowIdx];
+
     if (confirm("削除する？")) {
-      await surveysRef.doc(data.id).delete();
+      await surveysRef.doc(survey.id).delete();
     }
   }
 });
