@@ -22,11 +22,16 @@ th, td { padding:10px; border-bottom:1px solid #ddd;}
 .unanswered { background:#fee2e2; }
 .answered { background:#dcfce7; }
 .delete-btn { background:#ef4444; color:#fff; border:none;}
+.logout-btn { margin-bottom:10px; background:#555; color:#fff; border:none; padding:8px;}
 </style>
 </head>
 
 <body>
+
 <div class="container">
+
+<button class="logout-btn" onclick="logout()">ログアウト</button>
+
 <h2>アンケート管理</h2>
 
 <div class="input-group">
@@ -40,18 +45,39 @@ th, td { padding:10px; border-bottom:1px solid #ddd;}
 <tr>
 <th>名前</th>
 <th>締切</th>
-<th>A</th>
-<th>B</th>
-<th>C</th>
-<th>D</th>
+<th>飯嶋さん</th>
+<th>谷田さん</th>
+<th>本田さん</th>
+<th>徳石さん</th>
 <th>削除</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
 </table>
+
 </div>
 
 <script>
+// ================= 簡易ログイン =================
+const PASSWORD = "0101"; // ←変えてOK
+
+if (!localStorage.getItem("auth")) {
+  const input = prompt("パスワードを入力してください");
+
+  if (input !== PASSWORD) {
+    alert("パスワードが違います");
+    document.body.innerHTML = "アクセスできません";
+    throw new Error("Unauthorized");
+  }
+
+  localStorage.setItem("auth", "ok");
+}
+
+function logout() {
+  localStorage.removeItem("auth");
+  location.reload();
+}
+
 // ================= Firebase設定 =================
 const firebaseConfig = {
   apiKey: "AIzaSyBhbolbMQlj888NB8_K3nJqA84T_QLtfRg",
@@ -71,27 +97,41 @@ function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
-  const userKeys = ["a","b","c","d"];
+  const userKeys = ["iijima","tanida","honda","tokuishi"];
 
   surveyData.forEach((row, rowIndex) => {
     const tr = document.createElement("tr");
 
+    // 名前
     tr.innerHTML += `<td>${row.name}</td>`;
-    tr.innerHTML += `<td>${row.deadline || "-"}</td>`;
 
+    // 締切
+    let deadlineText = row.deadline || "-";
+    const deadlineDate = new Date(row.deadline);
+    const today = new Date();
+
+    let deadlineStyle = "";
+
+    if (row.deadline && deadlineDate < today) {
+      deadlineStyle = 'style="color:red;"';
+    }
+
+    tr.innerHTML += `<td ${deadlineStyle}>${deadlineText}</td>`;
+
+    // ステータス
     userKeys.forEach(key => {
       const status = row.users?.[key] || false;
-      const btnClass = status ? "answered" : "unanswered";
 
       tr.innerHTML += `
         <td>
-          <button class="status-btn ${btnClass}" 
+          <button class="status-btn ${status ? 'answered':'unanswered'}" 
           data-row="${rowIndex}" data-user="${key}">
-          ${status ? "済" : "未"}
+          ${status ? "回答済":"未回答"}
           </button>
         </td>`;
     });
 
+    // 削除
     tr.innerHTML += `
       <td>
         <button class="delete-btn" data-row="${rowIndex}">
@@ -126,7 +166,12 @@ document.getElementById("addButton").addEventListener("click", async () => {
   await surveysRef.add({
     name,
     deadline,
-    users: { a:false, b:false, c:false, d:false },
+    users: {
+      iijima:false,
+      tanida:false,
+      honda:false,
+      tokuishi:false
+    },
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 
@@ -134,11 +179,22 @@ document.getElementById("addButton").addEventListener("click", async () => {
   document.getElementById("newSurveyDeadline").value = "";
 });
 
+// Enter追加
+document.getElementById("newSurveyName")
+.addEventListener("keypress", (e) => {
+  if (e.key === "Enter") {
+    document.getElementById("addButton").click();
+  }
+});
+
 // ================= クリック =================
 document.addEventListener("click", async (e) => {
 
   // 状態変更
   if (e.target.classList.contains("status-btn")) {
+
+    if (!confirm("状態変更しますか？")) return;
+
     const rowIdx = e.target.dataset.row;
     const key = e.target.dataset.user;
     const survey = surveyData[rowIdx];
@@ -161,5 +217,7 @@ document.addEventListener("click", async (e) => {
   }
 });
 </script>
+
 </body>
 </html>
+``
