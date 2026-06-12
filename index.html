@@ -5,51 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>アンケート回答状況管理</title>
     
-    <script src="https://res.cdn.office.net/teams-js/2/latest/js/MicrosoftTeams.min.js"></script>
+    <!-- Firebase Compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
         body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 20px; background-color: #f3f4f6; color: #333; }
         .container { max-width: 950px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         h1 { font-size: 24px; margin-bottom: 25px; color: #111827; text-align: center; }
-       
+        
         .input-group { display: flex; gap: 15px; margin-bottom: 30px; align-items: center; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; }
         .input-box { flex: 2; display: flex; flex-direction: column; gap: 5px; }
         .date-box { flex: 1; display: flex; flex-direction: column; gap: 5px; }
         label { font-size: 13px; font-weight: bold; color: #4b5563; }
-       
+        
         input[type="text"], input[type="date"] { 
             padding: 11px; border: 1px solid #d1d5db; border-radius: 6px; 
             font-size: 15px; width: 100%; box-sizing: border-box; 
         }
-       
+        
         .add-btn { 
             padding: 12px 28px; background-color: #2563eb; color: white; 
             border: none; border-radius: 6px; font-size: 16px; cursor: pointer; 
             font-weight: bold; transition: background 0.2s; align-self: flex-end; 
         }
         .add-btn:hover { background-color: #1d4ed8; }
-       
+        
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 14px; text-align: center; border-bottom: 1px solid #e5e7eb; }
         th { background-color: #f9fafb; color: #4b5563; font-weight: 600; }
         .survey-name { text-align: left; font-weight: bold; color: #374151; }
         .survey-deadline { color: #6b7280; font-size: 14px; white-space: nowrap; }
-       
+        
         .status-btn { 
             padding: 8px 16px; border: none; border-radius: 20px; 
             font-size: 14px; font-weight: 500; cursor: pointer; 
             transition: all 0.2s; width: 95px; 
-            pointer-events: auto !important;
         }
         .status-btn.unanswered { background-color: #fee2e2; color: #ef4444; }
         .status-btn.unanswered::before { content: "未回答"; }
         .status-btn.answered { background-color: #dcfce7; color: #22c55e; }
         .status-btn.answered::before { content: "回答済"; }
-       
+        
         .delete-btn { 
             background-color: #ef4444; padding: 8px 12px; font-size: 14px; 
             border: none; border-radius: 6px; color: white; cursor: pointer; 
-            pointer-events: auto !important;
         }
         .delete-btn:hover { background-color: #dc2626; }
     </style>
@@ -85,93 +85,106 @@
 </div>
 
 <script>
-    async function initTeams() {
-        try {
-            await microsoftTeams.app.initialize();
-            console.log("Teams SDK 初期化");
-        } catch(e) {}
-    }
+// ==================== Firebase設定 ====================
+const firebaseConfig = {
+  apiKey: "AIzaSyBhbolbMQlj888NB8_K3nJqA84T_QLtfRg",
+  authDomain: "survey-manager-80287.firebaseapp.com",
+  databaseURL: "https://survey-manager-80287-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "survey-manager-80287",
+  storageBucket: "survey-manager-80287.firebasestorage.app",
+  messagingSenderId: "953593730407",
+  appId: "1:953593730407:web:4c115a33bff1dcc93c4bc2"
+};
 
-    let surveyData = JSON.parse(localStorage.getItem('survey_app_data')) || [
-        { name: 'サンプルアンケート（テスト用）', deadline: '2026-06-30', users: [false, false, false, false] }
-    ];
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const surveysRef = db.ref('surveys');
 
-    function renderTable() {
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
+// ==================== データ管理 ====================
+let surveyData = [];
 
-        surveyData.forEach((row, rowIndex) => {
-            const tr = document.createElement('tr');
-            
-            const tdName = document.createElement('td');
-            tdName.className = 'survey-name';
-            tdName.textContent = row.name;
-            tr.appendChild(tdName);
+function renderTable() {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
 
-            const tdDeadline = document.createElement('td');
-            tdDeadline.className = 'survey-deadline';
-            tdDeadline.textContent = row.deadline ? `${new Date(row.deadline).getMonth()+1}/${new Date(row.deadline).getDate()}` : '-';
-            tr.appendChild(tdDeadline);
+    surveyData.forEach((row, rowIndex) => {
+        const tr = document.createElement('tr');
+        
+        const tdName = document.createElement('td');
+        tdName.className = 'survey-name';
+        tdName.textContent = row.name || '';
+        tr.appendChild(tdName);
 
-            row.users.forEach((status, userIndex) => {
-                const td = document.createElement('td');
-                const btn = document.createElement('button');
-                btn.className = `status-btn ${status ? 'answered' : 'unanswered'}`;
-                btn.dataset.row = rowIndex;
-                btn.dataset.user = userIndex;
-                td.appendChild(btn);
-                tr.appendChild(td);
-            });
+        const tdDeadline = document.createElement('td');
+        tdDeadline.className = 'survey-deadline';
+        tdDeadline.textContent = row.deadline ? `${new Date(row.deadline).getMonth()+1}/${new Date(row.deadline).getDate()}` : '-';
+        tr.appendChild(tdDeadline);
 
-            const tdDel = document.createElement('td');
-            const delBtn = document.createElement('button');
-            delBtn.className = 'delete-btn';
-            delBtn.textContent = '削除';
-            delBtn.dataset.row = rowIndex;
-            tdDel.appendChild(delBtn);
-            tr.appendChild(tdDel);
-
-            tbody.appendChild(tr);
+        (row.users || [false, false, false, false]).forEach((status, userIndex) => {
+            const td = document.createElement('td');
+            const btn = document.createElement('button');
+            btn.className = `status-btn ${status ? 'answered' : 'unanswered'}`;
+            btn.dataset.row = rowIndex;
+            btn.dataset.user = userIndex;
+            td.appendChild(btn);
+            tr.appendChild(td);
         });
 
-        localStorage.setItem('survey_app_data', JSON.stringify(surveyData));
-    }
+        const tdDel = document.createElement('td');
+        const delBtn = document.createElement('button');
+        delBtn.className = 'delete-btn';
+        delBtn.textContent = '削除';
+        delBtn.dataset.row = rowIndex;
+        tdDel.appendChild(delBtn);
+        tr.appendChild(tdDel);
 
-    // イベント委譲（Teams対応）
-    document.addEventListener('click', function(e) {
-        if (e.target.id === 'addButton') {
-            addSurveyRow();
-        } else if (e.target.classList.contains('status-btn')) {
-            const row = parseInt(e.target.dataset.row);
-            const user = parseInt(e.target.dataset.user);
-            if (!isNaN(row) && !isNaN(user)) {
-                surveyData[row].users[user] = !surveyData[row].users[user];
-                renderTable();
-            }
-        } else if (e.target.classList.contains('delete-btn')) {
-            const row = parseInt(e.target.dataset.row);
-            if (!isNaN(row) && confirm('このアンケートを削除しますか？')) {
-                surveyData.splice(row, 1);
-                renderTable();
-            }
-        }
+        tbody.appendChild(tr);
     });
+}
 
-    function addSurveyRow() {
-        const name = document.getElementById('newSurveyName').value.trim();
-        const deadline = document.getElementById('newSurveyDeadline').value;
-        if (!name) return alert('アンケート名を入力してください');
-        
-        surveyData.unshift({ name, deadline, users: [false, false, false, false] });
-        document.getElementById('newSurveyName').value = '';
-        document.getElementById('newSurveyDeadline').value = '';
-        renderTable();
-    }
+// リアルタイム同期
+surveysRef.on('value', (snapshot) => {
+    surveyData = snapshot.val() || [];
+    renderTable();
+});
 
-    window.onload = async () => {
-        await initTeams();
-        renderTable();
+// 追加
+document.getElementById('addButton').addEventListener('click', () => {
+    const name = document.getElementById('newSurveyName').value.trim();
+    const deadline = document.getElementById('newSurveyDeadline').value;
+    if (!name) return alert('アンケート名を入力してください');
+    
+    const newSurvey = { 
+        name, 
+        deadline: deadline || null, 
+        users: [false, false, false, false] 
     };
+    
+    surveyData.unshift(newSurvey);
+    surveysRef.set(surveyData);
+    
+    document.getElementById('newSurveyName').value = '';
+    document.getElementById('newSurveyDeadline').value = '';
+});
+
+// ステータス変更・削除
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('status-btn')) {
+        const rowIdx = parseInt(e.target.dataset.row);
+        const userIdx = parseInt(e.target.dataset.user);
+        if (!isNaN(rowIdx) && !isNaN(userIdx)) {
+            surveyData[rowIdx].users[userIdx] = !surveyData[rowIdx].users[userIdx];
+            surveysRef.set(surveyData);
+        }
+    } 
+    else if (e.target.classList.contains('delete-btn')) {
+        const rowIdx = parseInt(e.target.dataset.row);
+        if (!isNaN(rowIdx) && confirm('このアンケートを削除しますか？')) {
+            surveyData.splice(rowIdx, 1);
+            surveysRef.set(surveyData);
+        }
+    }
+});
 </script>
 </body>
 </html>
