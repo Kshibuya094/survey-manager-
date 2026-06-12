@@ -5,14 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>アンケート管理（復旧版）</title>
 
-<!-- Realtime Database -->
+<!-- ✅ Firebase（正しい形） -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
 <style>
 body { font-family: Arial; background:#f3f4f6; padding:20px; }
 .container { max-width:900px; margin:auto; background:#fff; padding:20px; }
-
 .input-group { display:flex; gap:10px; margin-bottom:20px; }
 input { padding:10px; }
 
@@ -32,7 +31,7 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 <body>
 
 <div class="container">
-<h2>アンケート管理（復旧版）</h2>
+<h2>アンケート管理</h2>
 
 <div class="input-group">
 <input id="newSurveyName" placeholder="アンケート名">
@@ -57,21 +56,26 @@ th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
 </div>
 
 <script>
+
+// ✅ Firebase設定（※ここだけ自分の値に置き換え）
 const firebaseConfig = {
   apiKey: "あなたのAPIキー",
   authDomain: "あなたのauthDomain",
-  databaseURL: "あなたのdatabaseURL",
-  projectId: "あなたのprojectId"
+  databaseURL: "https://survey-manager-80287-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId: "survey-manager-80287"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
+// ✅ 保存先
 const ref = db.ref("surveys");
 
 let surveyData = [];
 let surveyKeys = [];
 
-function render() {
+// ✅ 描画
+function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
@@ -85,9 +89,9 @@ function render() {
     users.forEach(u => {
       const s = row.users?.[u];
       tr += `<td>
-        <button class="${s?"answered":"unanswered"}"
+        <button class="${s ? "answered" : "unanswered"}"
         data-i="${i}" data-u="${u}">
-        ${s?"済":"未"}
+        ${s ? "済" : "未"}
         </button>
       </td>`;
     });
@@ -100,13 +104,15 @@ function render() {
   });
 }
 
+// ✅ リアルタイム取得
 ref.on("value", snap => {
   const data = snap.val() || {};
   surveyData = Object.values(data);
   surveyKeys = Object.keys(data);
-  render();
+  renderTable();
 });
 
+// ✅ 追加
 document.getElementById("addButton").onclick = async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
@@ -128,6 +134,7 @@ document.getElementById("addButton").onclick = async () => {
   document.getElementById("newSurveyDeadline").value = "";
 };
 
+// ✅ 更新・削除
 document.addEventListener("click", async (e) => {
 
   if (e.target.classList.contains("unanswered") ||
@@ -139,7 +146,7 @@ document.addEventListener("click", async (e) => {
     const data = surveyData[i];
 
     await ref.child(key).update({
-      [`users/${u}`]: !data.users[u]
+      ["users/" + u]: !data.users[u]
     });
   }
 
