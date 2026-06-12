@@ -3,109 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>アンケート回答状況管理</title>
 
-<!-- Firebase SDK -->
+<title>アンケート回答状況チェック</title>
+
+<!-- Firebase（これ絶対そのまま） -->
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
 <style>
-body {
-  font-family: 'Helvetica Neue', Arial, sans-serif;
-  margin: 0;
-  padding: 20px;
-  background-color: #f3f4f6;
-  color: #333;
-}
-.container {
-  max-width: 950px;
-  margin: 0 auto;
-  background: #fff;
-  padding: 30px;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-}
-h1 {
-  font-size: 24px;
-  margin-bottom: 25px;
-  text-align: center;
-}
-.input-group {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 30px;
-}
-input {
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-}
-.add-btn {
-  padding: 10px 20px;
-  background:#2563eb;
-  color:#fff;
-  border:none;
-  border-radius:6px;
-  cursor:pointer;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-th, td {
-  padding: 12px;
-  text-align: center;
-  border-bottom: 1px solid #eee;
-}
-th {
-  background:#f9fafb;
-}
-.status-btn {
-  padding:6px 14px;
-  border:none;
-  border-radius:20px;
-  cursor:pointer;
-}
-.unanswered {
-  background:#fee2e2;
-  color:#ef4444;
-}
-.answered {
-  background:#dcfce7;
-  color:#22c55e;
-}
-.delete-btn {
-  background:#ef4444;
-  color:#fff;
-  border:none;
-  padding:6px 10px;
-  border-radius:6px;
-  cursor:pointer;
-}
+body { font-family: Arial; background:#f3f4f6; padding:20px; }
+.container { max-width:900px; margin:auto; background:#fff; padding:20px; }
+
+.input-group { display:flex; gap:10px; margin-bottom:20px; }
+input { padding:10px; }
+
+.add-btn { background:#2563eb; color:#fff; border:none; padding:10px; }
+
+table { width:100%; border-collapse: collapse; }
+th, td { padding:10px; border-bottom:1px solid #ccc; text-align:center; }
+
+.unanswered { background:#fee2e2; }
+.answered { background:#dcfce7; }
+
+.delete-btn { background:red; color:#fff; border:none; }
 </style>
 </head>
 
 <body>
 
 <div class="container">
-<h1>📊 アンケート回答状況チェック</h1>
+<h2>アンケート管理</h2>
 
 <div class="input-group">
-  <input type="text" id="newSurveyName" placeholder="アンケート名">
-  <input type="date" id="newSurveyDeadline">
-  <button id="addButton" class="add-btn">追加</button>
+<input id="newSurveyName" placeholder="アンケート名">
+<input type="date" id="newSurveyDeadline">
+<button id="addButton" class="add-btn">追加</button>
 </div>
 
 <table>
 <thead>
 <tr>
-  <th>アンケート名</th>
-  <th>締切</th>
-  <th>飯嶋さん</th>
-  <th>谷田さん</th>
-  <th>本田さん</th>
-  <th>徳石さん</th>
-  <th>削除</th>
+<th>名前</th>
+<th>締切</th>
+<th>飯嶋</th>
+<th>谷田</th>
+<th>本田</th>
+<th>徳石</th>
+<th>削除</th>
 </tr>
 </thead>
 <tbody id="tableBody"></tbody>
@@ -113,7 +57,6 @@ th {
 </div>
 
 <script>
-// ================= Firebase設定 =================
 const firebaseConfig = {
   apiKey: "あなたのAPIキー",
   authDomain: "あなたのauthDomain",
@@ -123,65 +66,59 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// ★ 店舗ID（今は固定）
-const SHOP_ID = "test-shop";
-
-// ★ ここが今回の本体
+// ←ここ固定
 const surveysRef = db
   .collection("shops")
-  .doc(SHOP_ID)
+  .doc("test-shop")
   .collection("surveys");
 
 let surveyData = [];
 
-// ================= 描画 =================
+// ===== 表示 =====
 function renderTable() {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = "";
 
-  const userKeys = ["iijima","tanida","honda","tokuishi"];
+  const users = ["iijima","tanida","honda","tokuishi"];
 
-  surveyData.forEach((row, rowIndex) => {
-    const tr = document.createElement("tr");
+  surveyData.forEach((row, i) => {
+    let tr = `<tr>
+      <td>${row.name}</td>
+      <td>${row.deadline || "-"}</td>`;
 
-    tr.innerHTML += `<td>${row.name}</td>`;
-    tr.innerHTML += `<td>${row.deadline || "-"}</td>`;
-
-    userKeys.forEach(key => {
-      const status = row.users?.[key] || false;
-      tr.innerHTML += `
-        <td>
-          <button class="status-btn ${status ? 'answered':'unanswered'}"
-            data-row="${rowIndex}" data-user="${key}">
-            ${status ? "回答済":"未回答"}
-          </button>
-        </td>`;
+    users.forEach(u => {
+      const s = row.users?.[u];
+      tr += `<td>
+        <button class="${s?"answered":"unanswered"}"
+        data-i="${i}" data-u="${u}">
+        ${s?"済":"未"}
+        </button>
+      </td>`;
     });
 
-    tr.innerHTML += `
-      <td>
-        <button class="delete-btn" data-row="${rowIndex}">削除</button>
-      </td>`;
+    tr += `<td>
+      <button class="delete-btn" data-i="${i}">削除</button>
+    </td></tr>`;
 
-    tbody.appendChild(tr);
+    tbody.innerHTML += tr;
   });
 }
 
-// ================= リアルタイム取得 =================
-surveysRef.orderBy("createdAt","desc")
-.onSnapshot(snapshot => {
+// ===== リアルタイム取得（orderByしない）=====
+surveysRef.onSnapshot(snap => {
   surveyData = [];
-  snapshot.forEach(doc => {
-    surveyData.push({ id: doc.id, ...doc.data() });
+  snap.forEach(doc => {
+    surveyData.push({ id:doc.id, ...doc.data() });
   });
   renderTable();
 });
 
-// ================= 追加 =================
+// ===== 追加 =====
 document.getElementById("addButton").onclick = async () => {
   const name = document.getElementById("newSurveyName").value.trim();
   const deadline = document.getElementById("newSurveyDeadline").value;
-  if (!name) return alert("アンケート名を入力してください");
+
+  if (!name) return;
 
   await surveysRef.add({
     name,
@@ -199,23 +136,26 @@ document.getElementById("addButton").onclick = async () => {
   document.getElementById("newSurveyDeadline").value = "";
 };
 
-// ================= クリック処理 =================
+// ===== クリック =====
 document.addEventListener("click", async (e) => {
 
-  if (e.target.classList.contains("status-btn")) {
-    const row = e.target.dataset.row;
-    const user = e.target.dataset.user;
-    const data = surveyData[row];
+  if (e.target.classList.contains("unanswered") ||
+      e.target.classList.contains("answered")) {
+
+    const i = e.target.dataset.i;
+    const u = e.target.dataset.u;
+    const data = surveyData[i];
 
     await surveysRef.doc(data.id).update({
-      [`users.${user}`]: !data.users[user]
+      [`users.${u}`]: !data.users[u]
     });
   }
 
   if (e.target.classList.contains("delete-btn")) {
-    const row = e.target.dataset.row;
-    const data = surveyData[row];
-    if (confirm("削除しますか？")) {
+    const i = e.target.dataset.i;
+    const data = surveyData[i];
+
+    if (confirm("削除する？")) {
       await surveysRef.doc(data.id).delete();
     }
   }
